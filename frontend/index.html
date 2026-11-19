@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#004b49">
+  <title>EcoAcuario | Monitoreo y control</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-inner">
+      <div class="eyebrow">MONITOREO Y CONTROL LOCAL</div>
+      <div class="brand">EcoAcuario</div>
+      <div class="subtitle">Sistema IoT · Raspberry Pi 4 · Conexión por Wi-Fi</div>
+    </div>
+    <div class="connection-strip">
+      <span id="connectionDot" class="dot"></span>
+      <span id="connectionText">Conectando con el servidor...</span>
+      <span class="demo-tag" id="modeTag">MODO DEMOSTRACIÓN</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="page-status" class="page active">
+      <div class="page-heading"><div><p class="kicker">PANEL PRINCIPAL</p><h1>Estado del agua</h1></div><span id="lastUpdate" class="muted small">Esperando datos...</span></div>
+      <div id="globalWarning" class="notice hidden"></div>
+      <div class="metric-grid">
+        <article class="metric-card"><div class="metric-head"><h3>pH</h3><span id="phBadge" class="pill">--</span></div><div id="phValue" class="metric-value">--</div><div id="phMeta" class="metric-meta">Esperando lectura</div></article>
+        <article class="metric-card"><div class="metric-head"><h3>Temperatura</h3><span id="tempBadge" class="pill">--</span></div><div id="tempValue" class="metric-value">--</div><div id="tempMeta" class="metric-meta">Esperando lectura</div></article>
+        <article class="metric-card"><div class="metric-head"><h3>Nivel del agua</h3><span id="levelBadge" class="pill">--</span></div><div id="levelValue" class="metric-value">--</div><div id="levelMeta" class="metric-meta">Esperando lectura</div></article>
+      </div>
+      <div class="two-col">
+        <article class="panel"><div class="panel-title"><div><p class="kicker">AUTOMATIZACIÓN</p><h2>Estado de las salidas</h2></div><span class="live-indicator">● Actualizado</span></div>
+          <div class="output-line"><div><b>Bomba de agua</b><small id="pumpReason">Estado recibido del servidor</small></div><span id="pumpState" class="state off">Apagada</span></div>
+          <div class="output-line"><div><b>Calefactor</b><small id="heaterReason">Control automático</small></div><span id="heaterState" class="state off">Apagado</span></div>
+        </article>
+        <article class="panel"><p class="kicker">ACCIONES</p><h2>Lectura del sistema</h2><p class="muted">Solicita una lectura inmediata sin esperar el siguiente período automático.</p><button id="measureBtn" class="btn primary">↻ Medir ahora</button><p id="measureMessage" class="feedback"></p></article>
+      </div>
+      <p class="footnote">Período previsto: 15 minutos · Vigencia de las lecturas: 30 minutos. Los datos de demostración no representan mediciones físicas.</p>
+    </section>
+
+    <section id="page-history" class="page">
+      <div class="page-heading"><div><p class="kicker">REGISTRO LOCAL</p><h1>Historial de lecturas</h1></div></div>
+      <article class="panel">
+        <label for="historyVariable">Variable</label>
+        <select id="historyVariable"><option value="temperature">Temperatura (°C)</option><option value="ph">pH</option><option value="level">Nivel del agua (cm)</option></select>
+        <div class="chart-wrap"><canvas id="historyChart"></canvas></div>
+        <div class="table-wrap"><table><thead><tr><th>Hora</th><th>Valor</th><th>Validez</th></tr></thead><tbody id="historyRows"></tbody></table></div>
+        <p class="footnote">Los registros inválidos conservan su hora y el motivo del error.</p>
+      </article>
+    </section>
+
+    <section id="page-limits" class="page">
+      <div class="page-heading"><div><p class="kicker">CONFIGURACIÓN</p><h1>Límites de prueba</h1></div></div>
+      <p class="muted">Valores del banco; se ajustan al recipiente y al ensayo.</p>
+      <form id="configForm">
+        <article class="panel form-panel"><h2>pH</h2><div class="form-grid"><label>Mínimo<input name="ph_min" type="number" step="0.1" required></label><label>Máximo<input name="ph_max" type="number" step="0.1" required></label></div></article>
+        <article class="panel form-panel"><h2>Temperatura · °C</h2><div class="form-grid"><label>Alerta mínima<input name="temp_min" type="number" step="0.1" required></label><label>Alerta máxima<input name="temp_max" type="number" step="0.1" required></label></div><h3>Consignas del calefactor</h3><div class="form-grid"><label>Encender a<input name="heater_on" type="number" step="0.1" required></label><label>Apagar a<input name="heater_off" type="number" step="0.1" required></label></div><p class="hint">Mínimo alerta &lt; encender &lt; apagar &lt; máximo alerta.</p></article>
+        <article class="panel form-panel"><h2>Nivel · cm</h2><div class="form-grid"><label>Mínimo<input name="level_min" type="number" step="0.1" required></label><label>Máximo<input name="level_max" type="number" step="0.1" required></label></div><label>Altura del recipiente (H)<input name="tank_height" type="number" step="0.1" required></label><p class="hint">El nivel se calcula como h = H − d.</p></article>
+        <button class="btn primary wide" type="submit">Guardar límites</button><p id="configMessage" class="feedback"></p>
+      </form>
+    </section>
+
+    <section id="page-alerts" class="page">
+      <div class="page-heading"><div><p class="kicker">EVENTOS DEL SISTEMA</p><h1>Alertas y eventos</h1></div></div>
+      <p class="muted">La advertencia identifica la causa y la revisión necesaria.</p>
+      <div id="alertsList" class="stack"></div>
+    </section>
+
+    <section id="page-control" class="page">
+      <div class="page-heading"><div><p class="kicker">ACTUADORES</p><h1>Control de salidas</h1></div></div>
+      <div id="controlWarning" class="notice hidden"></div>
+      <article class="panel control-panel"><div class="panel-title"><h2>Bomba de agua</h2><span id="pumpControlState" class="state off">Apagada</span></div><p id="pumpControlReason" class="muted">La bomba requiere confirmación después de un bloqueo.</p><div class="button-row"><button id="pumpOn" class="btn primary">Encender</button><button id="pumpOff" class="btn secondary">Apagar</button></div></article>
+      <article class="panel control-panel"><div class="panel-title"><h2>Calefactor</h2><span id="heaterControlState" class="state off">Apagado</span></div><label for="heaterMode">Modo del calefactor</label><select id="heaterMode"><option value="automatic">Automático</option><option value="manual">Manual</option></select><p id="heaterControlReason" class="muted">El control automático utiliza las consignas configuradas.</p><div class="button-row"><button id="heaterOn" class="btn primary">Encender</button><button id="heaterOff" class="btn secondary">Apagar</button></div></article>
+      <article class="panel"><h2>Aireación independiente</h2><p class="muted">La bomba de aire no se conmuta desde esta interfaz.</p></article>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <button class="nav-item active" data-page="status"><span>◉</span>Estado</button>
+    <button class="nav-item" data-page="history"><span>▥</span>Historial</button>
+    <button class="nav-item" data-page="limits"><span>⚙</span>Límites</button>
+    <button class="nav-item" data-page="alerts"><span>⚠</span>Alertas</button>
+    <button class="nav-item" data-page="control"><span>⌁</span>Control</button>
+  </nav>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
